@@ -1,0 +1,58 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Example for Cloudwatch logs to S3 via Kinesis - deliver logs to S3'
+
+Resources:
+  KinesisLogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      BucketName: !Sub "kinesis-logs-example-${AWS::AccountId}"
+
+  Firehose2S3Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: firehose-to-s3-example
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: firehose.amazonaws.com
+          Action: sts:AssumeRole
+          Condition:
+            StringEquals:
+              'sts:ExternalId': !Ref 'AWS::AccountId'
+      Policies:
+      - PolicyName: firehose-to-s3-example
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:AbortMultipartUpload
+            - s3:GetBucketLocation
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:ListBucketMultipartUploads
+            - s3:PutObject
+            - s3:PutObjectAcl
+            Resource:
+            - !Sub "arn:aws:s3:::${KinesisLogsBucket}"
+            - !Sub "arn:aws:s3:::${KinesisLogsBucket}/*"
+
+  StreamToS3:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: logs-delivery-example
+      S3DestinationConfiguration:
+        BucketARN: !Sub 'arn:aws:s3:::${KinesisLogsBucket}'
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 10
+        CompressionFormat: UNCOMPRESSED
+        Prefix: example/
+        RoleARN: !GetAtt Firehose2S3Role.Arn
