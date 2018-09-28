@@ -1,0 +1,79 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Example for Cloudwatch logs to S3 via Kinesis - produce some logs every minute'
+
+Resources:
+  TimeBasedExec:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: This events calls the dummy producer every minute
+      ScheduleExpression: !Sub 'rate(1 minute)'
+      State: ENABLED
+      Targets:
+      - Arn: !GetAtt DummyProducer.Arn
+        Id: !Ref DummyProducer
+        Input: !Sub '{}'
+
+  AllowLambdaEvenInvokation:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+    - TimeBasedExec
+    Properties:
+      FunctionName: !GetAtt DummyProducer.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt TimeBasedExec.Arn
+
+  DummyProducer:
+    Type: AWS::Lambda::Function
+    DependsOn: LogGroup
+    Properties:
+      FunctionName: lambda-logs-dummy-producer
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+            print("Dummy data")
+      Description: This function submits AWS Batch jobs
+      Handler: index.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.6
+      Timeout: 20
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudwatch-logs-dummy-producer
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+
+  RolePolicies:
+    Type: AWS::IAM::Policy
+    DependsOn:
+    - LambdaRole
+    Properties:
+      PolicyName: cloudwatch-logs-dummy-producer
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+          - logs:CreateLogGroup
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Resource: '*'
+      Roles:
+      - !Ref LambdaRole
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: '/aws/lambda/lambda-logs-dummy-producer'
+      RetentionInDays: 3
