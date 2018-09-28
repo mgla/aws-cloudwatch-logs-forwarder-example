@@ -1,0 +1,50 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Destination for Cloudwatch logs'
+Parameters:
+  SourceAccountId:
+    Type: String
+    Description: AWS Account Id of source account.
+  SourceRegion:
+    Type: String
+    Description: AWS Region of source Account Id of source account.
+  DestinationRegion:
+    Type: String
+    Description: AWS Region where the logs should be delivered
+
+Resources:
+  DestinationWithName:
+    Type: AWS::Logs::Destination
+    Properties:
+      DestinationName: !Sub 'cloudwatch-destination-${SourceAccountId}'
+      RoleArn: !GetAtt CloudWatchLogsDeliveryRole.Arn
+      # Send logs to kinesis stream in this account, and specified region
+      TargetArn: !Sub 'arn:aws:firehose:${DestinationRegion}:${AWS::AccountId}:deliverystream/logs-delivery-example'
+      # Ensure only authorized accounts and resources are allowed to write to this log destination
+      DestinationPolicy: !Sub '{"Version": "2012-10-17", "Statement": [{ "Effect": "Allow", "Principal": {"AWS": "${SourceAccountId}"}, "Action": "logs:PutSubscriptionFilter", "Resource": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:destination:cloudwatch-destination-${SourceAccountId}"}]}'
+
+  CloudWatchLogsDeliveryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'cloudwatch-to-kinesis-${SourceAccountId}-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - !Sub 'logs.${AWS::Region}.amazonaws.com'
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: !Sub 'cloudwatch-to-kinesis-${SourceAccountId}'
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - firehose:*
+            Resource: !Sub 'arn:aws:firehose:${DestinationRegion}:${AWS::AccountId}:*'
+          - Effect: Allow
+            Action:
+            - iam:PassRole
+            Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/cloudwatch-to-kinesis-${SourceAccountId}-${AWS::Region}'

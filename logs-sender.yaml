@@ -1,0 +1,17 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Example for Cloudwatch logs to S3 via Kinesis - send logs to destination account'
+
+Parameters:
+  DestinationAccountId:
+    Description: AWS Account Id of destination account. Immutable
+    Type: String
+
+Resources:
+  CloudWatchLogsSubscriptionFilter:
+    Description: Send logs from Cloudwatch to destination in other account, but in same region
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      DestinationArn: !Sub 'arn:aws:logs:${AWS::Region}:${DestinationAccountId}:destination:cloudwatch-destination-${AWS::AccountId}'
+      FilterPattern: ''
+      LogGroupName: '/aws/lambda/lambda-logs-dummy-producer'
