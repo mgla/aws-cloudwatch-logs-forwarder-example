@@ -14,7 +14,11 @@ Keep ready:
 * The target region (where you need the logs to be)
 * The target AWS account ID, can be the same as the source account ID 
 
+Open up your favourite way of deploying AWS CloudFormation, e.g. the AWS  Console, then follow these steps:
+
 1. In the target account, prepare the logs delivery using using the AWS CloudFormation template `logs-delivery.yaml`
 1. In the target account, prepare the receiver `logs-receiver.yaml`. The receiver can be in another region than the logs delivery, but must be in the same region as the log producer.
 1. In the source account, create a dummy logs producer using the template `logs-producer.yaml`. Outside of this example, this might be your application.
 1. In the source account, create the logs forwarder using the template `logs-sender.yaml`. It must be in the same region as the logs producer.
+
+The logs should be delivered every 60 seconds to the created S3 bucket. Be advised that some costs may occur.
